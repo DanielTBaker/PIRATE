@@ -22,28 +22,8 @@ import astropy.units as u
 
 import pickle as pkl
 import sys
+from fitsio import *
 
-
-def axis_array(header,axID):
-    try:
-        nAx = header['NAXIS'+str(axID)]
-    except:
-        nAx = header['NAXIS']
-    try:
-        dAx = header['CDELT'+str(axID)]
-    except:
-        dAx = header['CDELT']            
-    try:
-        refVal = header['CRVAL'+str(axID)]
-    except:
-        refVal = header['CRVAL']            
-    try:
-        refID = int(header['CRPIX'+str(axID)])-1
-    except:
-        refID = int(header['CRPIX'])-1            
-    ax = np.linspace(0,nAx-1,nAx)*dAx
-    ax += refVal - ax[refID]
-    return(ax)
    
 def do_svd(ds):
     goodf = np.isfinite(np.nanstd(ds,1))
@@ -499,11 +479,7 @@ class DynWidget(QWidget):
     def load(self,filename,svd,good,work,interesting):
         if self.filename !=filename.split('/')[-1]:
             self.set = True
-            hdul = fits.open(filename)
-            self.dspec = hdul['PRIMARY'].data.T
-            self.time = axis_array(hdul['PRIMARY'].header,2)*u.s
-            self.freq = axis_array(hdul['PRIMARY'].header,1)*u.MHz
-            hdul.close()
+            self.dspec,self.time,self.freq = dspec_from_fits(filename)
             self.singleThetaTheta = False
             self.filename = filename.split('/')[-1]
             self.work = work
@@ -743,6 +719,7 @@ class ThThTab(QWidget):
             origin="lower",
             aspect="auto",
             extent=thth.ext_find(fd, tau),
+            cmap='magma'
         )
         self.dataSspecPlot.set_xlim((-fd_lim, fd_lim))
         self.dataSspecPlot.set_ylim((0, tau_lim.value))
@@ -1113,6 +1090,7 @@ class ThThTab(QWidget):
                 self._calc_cwt(self.nctControl.value())
                 self.update_fw_display()
                 self.singleButton.setEnabled(True)
+                self.parametersSet.emit()
             else:
                 self.netaLabel.setText(f'Number of \u03B7 to search : ---')
                 self.nedgeLabel.setText(f'\u03B8-\u03B8 size : ---')
